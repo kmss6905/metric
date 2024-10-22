@@ -1,6 +1,6 @@
 services:
   order-service:
-    image: todo:0.0.2-SNAPSHOT
+    image: todo:0.0.3-SNAPSHOT
     environment:
       OTEL_SERVICE_NAME: "order-service"
       OTEL_TRACES_EXPORTER: "otlp"
