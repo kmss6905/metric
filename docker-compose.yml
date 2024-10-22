@@ -1,0 +1,37 @@
+services:
+  order-service:
+    image: todo:0.0.2-SNAPSHOT
+    environment:
+      OTEL_SERVICE_NAME: "order-service"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_METRICS_EXPORTER: "logging"
+      OTEL_LOGS_EXPORTER: "logging"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - jaeger-all-in-one
+
+  jaeger-all-in-one:
+    container_name: jaeger
+    image: jaegertracing/all-in-one:latest
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    restart: always
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC
+      - "6831:6831/udp" # Thrift agent
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: opentelemetry
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"

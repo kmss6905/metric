@@ -1,0 +1,94 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.4'
+    id 'io.spring.dependency-management' version '1.1.6'
+    id 'com.google.cloud.tools.jib' version '3.4.3'
+}
+
+group = 'metric'
+version = '0.0.2-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+    agent
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    agent 'io.opentelemetry.javaagent:opentelemetry-javaagent:2.9.0'
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    annotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.register('copyAgent', Copy) {
+    from configurations.agent {
+        rename "opentelemetry-javaagent-.*\\.jar", "opentelemetry-javaagent.jar"
+    }
+    into layout.buildDirectory.dir("agent")
+}
+
+bootJar{
+    dependsOn copyAgent
+    archiveFileName = "app.jar"
+}
+
+jib {
+    // https://hub.docker.com/_/amazoncorretto
+    //	from.image = 'amazoncorretto:17.0.9-alpine'
+
+    // https://console.cloud.google.com/gcr/images/distroless/GLOBAL
+    from {
+        image = 'gcr.io/distroless/java17-debian12'
+        platforms {
+            platform {
+                architecture = 'arm64'
+                os = 'linux'
+            }
+        }
+    }
+
+    extraDirectories {
+        paths {
+            path {
+                from = layout.buildDirectory.dir("agent")
+                into = '/otelagent'
+            }
+        }
+    }
+
+    container {
+        jvmFlags = [
+                '-javaagent:/otelagent/opentelemetry-javaagent.jar'
+        ]
+    }
+}
+
+tasks.named('jibDockerBuild').configure {
+    dependsOn copyAgent
+}
+
